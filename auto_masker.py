@@ -29,7 +29,8 @@ for img_name in image_files:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
     # 3. The Magic Threshold
-    _, mask = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)
+    # Lower this value (e.g., 120-150) to make it more sensitive to dim cloud edges.
+    _, mask = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
     
     # 4. Optional Polish: Remove tiny specks of noise
     kernel = np.ones((5,5), np.uint8)
