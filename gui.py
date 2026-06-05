@@ -86,8 +86,10 @@ class CloudAnnotator(QWidget):
         image_row.addWidget(self.mask_label)
         image_row.addWidget(self.overlay_label)
 
+        # Sliders Layout
+        sliders_layout = QHBoxLayout()
+        
         # Threshold Slider Setup
-        threshold_layout = QHBoxLayout()
         threshold_lbl = QLabel(f"Threshold: {self.current_threshold}")
         threshold_lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e1e1e; min-width: 130px;")
         
@@ -98,8 +100,20 @@ class CloudAnnotator(QWidget):
         self.slider.setFocusPolicy(Qt.NoFocus)
         self.slider.valueChanged.connect(self.threshold_changed)
         
-        # Premium Modern Slider styling
-        self.slider.setStyleSheet("""
+        # Opacity Slider Setup
+        self.mask_opacity = 0.5
+        opacity_lbl = QLabel("Opacity: 50%")
+        opacity_lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e1e1e; min-width: 130px; margin-left: 20px;")
+        
+        self.opacity_slider = QSlider(Qt.Horizontal)
+        self.opacity_slider.setMinimum(0)
+        self.opacity_slider.setMaximum(100)
+        self.opacity_slider.setValue(50)
+        self.opacity_slider.setFocusPolicy(Qt.NoFocus)
+        self.opacity_slider.valueChanged.connect(self.opacity_changed)
+        
+        # Premium Modern Slider styling (apply to both)
+        slider_style = """
             QSlider::groove:horizontal {
                 height: 8px;
                 background: #e9ecef;
@@ -115,11 +129,17 @@ class CloudAnnotator(QWidget):
             QSlider::handle:horizontal:hover {
                 background: #0056b3;
             }
-        """)
+        """
+        self.slider.setStyleSheet(slider_style)
+        self.opacity_slider.setStyleSheet(slider_style)
         
-        threshold_layout.addWidget(threshold_lbl)
-        threshold_layout.addWidget(self.slider)
+        sliders_layout.addWidget(threshold_lbl)
+        sliders_layout.addWidget(self.slider)
+        sliders_layout.addWidget(opacity_lbl)
+        sliders_layout.addWidget(self.opacity_slider)
+        
         self.threshold_label = threshold_lbl
+        self.opacity_label = opacity_lbl
 
         # Legend Setup
         legend_lbl = QLabel(
@@ -182,7 +202,7 @@ class CloudAnnotator(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self.status_label)
         layout.addLayout(image_row)
-        layout.addLayout(threshold_layout)
+        layout.addLayout(sliders_layout)
         layout.addWidget(legend_lbl)
         layout.addLayout(controls)
 
@@ -280,7 +300,8 @@ class CloudAnnotator(QWidget):
 
         overlay = self.image_array.copy()
         mask_indices = self.mask_array > 0
-        overlay[mask_indices] = (0.5 * overlay[mask_indices] + 0.5 * np.array([255, 0, 0])).astype(np.uint8)
+        alpha = self.mask_opacity
+        overlay[mask_indices] = ((1 - alpha) * overlay[mask_indices] + alpha * np.array([255, 0, 0])).astype(np.uint8)
 
         overlay_q = QImage(
             overlay.data,
@@ -349,6 +370,11 @@ class CloudAnnotator(QWidget):
         self.threshold_label.setText(f"Threshold: {value}")
         self.current_threshold = value
         self.apply_threshold()
+
+    def opacity_changed(self, value):
+        self.mask_opacity = value / 100.0
+        self.opacity_label.setText(f"Opacity: {value}%")
+        self.update_views()
 
     def apply_threshold(self):
         if self.image_array is None:
