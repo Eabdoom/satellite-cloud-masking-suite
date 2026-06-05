@@ -13,7 +13,7 @@ from PyQt5.QtWidgets import (
     QPushButton, QMessageBox, QSlider
 )
 
-DATASET_ROOT = r"C:\Users\arnav\Personal\Internships\XDLINX Space Labs\interns_dataset\intern3"
+DATASET_ROOT = r"C:\Users\arnav\Personal\Internships\XDLINX Space Labs\interns_dataset\intern5"
 IMAGES_DIR = Path(DATASET_ROOT) / "images"
 MASKS_DIR = Path(DATASET_ROOT) / "masks"
 PROGRESS_FILE = Path(DATASET_ROOT) / "progress.txt"
@@ -65,11 +65,16 @@ class CloudAnnotator(QWidget):
         self.current_index = self.load_progress()
 
         self.status_label = QLabel()
-        self.status_label.setStyleSheet("font-size:16px;font-weight:bold;")
+        self.status_label.setStyleSheet("font-size: 18px; font-weight: bold; padding: 5px; color: #1e1e1e;")
 
         self.original_label = DrawLabel()
         self.mask_label = DrawLabel()
         self.overlay_label = DrawLabel()
+
+        # Center images within their layout columns
+        self.original_label.setAlignment(Qt.AlignCenter)
+        self.mask_label.setAlignment(Qt.AlignCenter)
+        self.overlay_label.setAlignment(Qt.AlignCenter)
 
         self.original_label.main_window = self
         self.mask_label.main_window = self
@@ -83,7 +88,7 @@ class CloudAnnotator(QWidget):
         # Threshold Slider Setup
         threshold_layout = QHBoxLayout()
         threshold_lbl = QLabel("Threshold: 95")
-        threshold_lbl.setStyleSheet("font-size:14px; font-weight:bold;")
+        threshold_lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e1e1e; min-width: 130px;")
         
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMinimum(0)
@@ -91,6 +96,25 @@ class CloudAnnotator(QWidget):
         self.slider.setValue(95)
         self.slider.setFocusPolicy(Qt.NoFocus)
         self.slider.valueChanged.connect(self.threshold_changed)
+        
+        # Premium Modern Slider styling
+        self.slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                height: 8px;
+                background: #e9ecef;
+                border-radius: 4px;
+            }
+            QSlider::handle:horizontal {
+                background: #007bff;
+                width: 18px;
+                margin-top: -5px;
+                margin-bottom: -5px;
+                border-radius: 9px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: #0056b3;
+            }
+        """)
         
         threshold_layout.addWidget(threshold_lbl)
         threshold_layout.addWidget(self.slider)
@@ -104,7 +128,7 @@ class CloudAnnotator(QWidget):
             "<b>Navigation:</b> Left / Right Arrow = Prev / Next (Auto-Saves) &nbsp;&nbsp;|&nbsp;&nbsp; "
             "<b>Shortcuts:</b> Ctrl+Z = Undo, R = Clear Mask, D = Delete Pair"
         )
-        legend_lbl.setStyleSheet("font-size:12px; color:#555555; background-color:#f0f0f0; padding:5px; border-radius:3px;")
+        legend_lbl.setStyleSheet("font-size: 14px; color: #333333; background-color: #e9ecef; padding: 10px; border-radius: 5px; margin-bottom: 5px;")
 
         controls = QHBoxLayout()
 
@@ -123,6 +147,30 @@ class CloudAnnotator(QWidget):
         delete_btn = QPushButton("Delete Pair")
         delete_btn.setFocusPolicy(Qt.NoFocus)
         delete_btn.clicked.connect(self.delete_pair)
+
+        # Premium modern button styling
+        btn_style = """
+            QPushButton {
+                font-size: 16px;
+                font-weight: bold;
+                padding: 10px 20px;
+                border-radius: 5px;
+                background-color: #f8f9fa;
+                border: 1px solid #ced4da;
+                color: #212529;
+            }
+            QPushButton:hover {
+                background-color: #e2e6ea;
+                border-color: #dae0e5;
+            }
+            QPushButton:pressed {
+                background-color: #dae0e5;
+            }
+        """
+        redraw_btn.setStyleSheet(btn_style)
+        prev_btn.setStyleSheet(btn_style)
+        next_btn.setStyleSheet(btn_style)
+        delete_btn.setStyleSheet(btn_style)
 
         controls.addWidget(redraw_btn)
         controls.addWidget(prev_btn)
@@ -176,17 +224,37 @@ class CloudAnnotator(QWidget):
                 Image.open(mask_path).convert("L")
             )
         else:
-            self.mask_array = np.zeros((h, w), dtype=np.uint8)
+            # Pre-generate threshold mask using current slider threshold value
+            threshold_val = self.slider.value()
+            gray = cv2.cvtColor(self.image_array, cv2.COLOR_RGB2GRAY)
+            _, mask = cv2.threshold(gray, threshold_val, 255, cv2.THRESH_BINARY)
+            kernel = np.ones((5,5), np.uint8)
+            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            self.mask_array = mask
 
         self.redraw_mode = False
         self.update_views()
         self.update_custom_cursor()
 
+    def get_dynamic_display_size(self):
+        if self.image_array is None:
+            return 600
+        win_w = self.width()
+        win_h = self.height()
+        
+        # Space reserved for status bar, threshold slider, legend, and buttons (approx 260px)
+        available_h = win_h - 260
+        available_w = (win_w - 60) // 3
+        
+        display_size = max(100, min(available_w, available_h))
+        return display_size
+
     def update_views(self):
+        if self.image_array is None:
+            return
 
         h, w = self.image_array.shape[:2]
-
-        display_size = 600
+        display_size = self.get_dynamic_display_size()
 
         img_q = QImage(
             self.image_array.data,
@@ -253,7 +321,7 @@ class CloudAnnotator(QWidget):
             return
         img_h, img_w = self.image_array.shape[:2]
         
-        display_size = 600
+        display_size = self.get_dynamic_display_size()
         aspect = img_w / img_h
         if aspect >= 1.0:
             label_w = display_size
@@ -431,6 +499,11 @@ class CloudAnnotator(QWidget):
 
         elif key == Qt.Key_Z and event.modifiers() & Qt.ControlModifier:
             self.undo()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_views()
+        self.update_custom_cursor()
 
 
 if __name__ == "__main__":
