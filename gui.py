@@ -80,15 +80,19 @@ class CloudAnnotator(QWidget):
         controls = QHBoxLayout()
 
         redraw_btn = QPushButton("R - Clear Mask")
+        redraw_btn.setFocusPolicy(Qt.NoFocus)
         redraw_btn.clicked.connect(self.start_redraw)
 
         prev_btn = QPushButton("Previous")
+        prev_btn.setFocusPolicy(Qt.NoFocus)
         prev_btn.clicked.connect(self.previous_image)
 
         next_btn = QPushButton("Next")
+        next_btn.setFocusPolicy(Qt.NoFocus)
         next_btn.clicked.connect(self.next_image)
 
         delete_btn = QPushButton("Delete Pair")
+        delete_btn.setFocusPolicy(Qt.NoFocus)
         delete_btn.clicked.connect(self.delete_pair)
 
         controls.addWidget(redraw_btn)
