@@ -28,14 +28,14 @@ class DrawLabel(QLabel):
         if self.main_window:
             self.main_window.save_undo_state()
             erase = (event.button() == Qt.RightButton)
-            self.main_window.paint_on_mask(event.pos(), erase=erase)
+            self.main_window.paint_on_mask(event.pos(), self, erase=erase)
 
     def mouseMoveEvent(self, event):
         if self.main_window:
             if event.buttons() & Qt.LeftButton:
-                self.main_window.paint_on_mask(event.pos(), erase=False)
+                self.main_window.paint_on_mask(event.pos(), self, erase=False)
             elif event.buttons() & Qt.RightButton:
-                self.main_window.paint_on_mask(event.pos(), erase=True)
+                self.main_window.paint_on_mask(event.pos(), self, erase=True)
 
 
 class CloudAnnotator(QWidget):
@@ -68,9 +68,10 @@ class CloudAnnotator(QWidget):
 
         self.original_label = DrawLabel()
         self.mask_label = QLabel()
-        self.overlay_label = QLabel()
+        self.overlay_label = DrawLabel()
 
         self.original_label.main_window = self
+        self.overlay_label.main_window = self
 
         image_row = QHBoxLayout()
         image_row.addWidget(self.original_label)
@@ -224,15 +225,15 @@ class CloudAnnotator(QWidget):
         self.mask_array[:] = 0
         self.update_views()
 
-    def paint_on_mask(self, pos, erase=False):
-        pixmap = self.original_label.pixmap()
+    def paint_on_mask(self, pos, label, erase=False):
+        pixmap = label.pixmap()
         if pixmap is None:
             return
 
         img_h, img_w = self.mask_array.shape
 
-        label_w = self.original_label.width()
-        label_h = self.original_label.height()
+        label_w = label.width()
+        label_h = label.height()
 
         x = int(pos.x() * img_w / max(1, label_w))
         y = int(pos.y() * img_h / max(1, label_h))
