@@ -1,67 +1,66 @@
-# Satellite Cloud Masking: PyQt5 Annotator & OpenCV Auto-Masker
+# XDLINX Space Labs - Cloud Masking Tools Setup Guide
 
-A high-productivity cloud masking solution developed during my internship at **XDLINX Space Labs** to streamline the annotation of thick clouds in remote sensing/satellite imagery. This project converts a tedious manual drawing pipeline into an efficient automated-generation and verification workflow for training machine learning models.
+Welcome to the Cloud Masking dataset project. This guide will help you set up your environment and get started with the tools to generate and annotate thick clouds in satellite imagery.
 
----
-
-## 🚀 The Core Problem
-To train AI models on satellite imagery, cloud cover must be accurately masked. Manually segmenting clouds pixel-by-pixel or with standard drawing utilities is incredibly time-consuming. 
-
-This repository introduces a **hybrid pipeline** that:
-1. **Automatically pre-masks** candidate cloud regions using Computer Vision.
-2. **Allows rapid human-in-the-loop review and correction** via an interactive PyQt5 GUI desktop application.
+## ⚠️ Important Note Before Starting
+Do **NOT** share or copy the virtual environment folder (`venv/`) or progress files (`progress.txt`) from another machine. Doing so will break package paths and overwrite your work. Follow the setup below to create a clean environment.
 
 ---
 
-## 🛠️ Architecture & Features
+## 🛠️ Step-by-Step Setup
 
-### 1. Automated Segmentation Pipeline (`auto_masker.py`)
-Instead of starting annotations from scratch, a script uses computer vision to generate candidate masks for the entire dataset:
-- **Grayscale Conversion & Thresholding**: Leverages brightness characteristics of thick clouds to segment candidate areas.
-- **Morphological Operations**: Applies opening (`MORPH_OPEN`) filters to eliminate salt-and-pepper noise and clean up boundaries.
-- **Incremental Workflow**: Automatically respects progress logs to avoid overwriting existing manual annotations.
+### Step 1: Create a Fresh Virtual Environment
+Open your terminal (PowerShell, Command Prompt, or terminal of choice) in this project folder (`interns_dataset/`) and run:
 
-### 2. Interactive Annotation GUI (`gui.py`)
-A custom PyQt5 desktop application built to review and correct masks:
-- **Dual Visuals**: Displays the original satellite image, the generated binary mask, and a red-masked image overlay side-by-side for instant comparison.
-- **Brush & Erase**: Allows direct drawing with **Left-Click** and erasing with **Right-Click** with adjustable brush sizes.
-- **State Undo**: Built-in undo operations (`Ctrl + Z`) to revert mistakes.
-- **Keyboard Shortcuts**: Arrow-key navigation (Left/Right) for seamless image swapping, auto-saving progress, and quick deletion commands (`D` or `R`).
-- **State Preservation**: Saves progress using a simple state file (`progress.txt`) allowing users to close the application and resume at any point.
-
----
-
-## 📦 Setup & Installation
-
-### Prerequisites
-Make sure you have Python installed. You can install all dependencies via pip:
 ```bash
-pip install numpy opencv-python PyQt5 Pillow
-```
+# 1. Create the environment
+python -m venv venv
 
-### Dataset Structure
-Organize your dataset folder (e.g., `intern3`) as follows:
-```text
-intern3/
-├── images/        # Put your raw satellite images here (.png, .jpg, .jpeg)
-├── masks/         # Output directory where masks will be saved
-└── progress.txt   # Tracks your last annotated image index
+# 2. Activate the environment
+# On Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+
+# On Windows (Command Prompt):
+.\venv\Scripts\activate.bat
+
+# On macOS/Linux:
+source venv/bin/activate
 ```
 
 ---
 
-## 📖 Usage Guide
+### Step 2: Install Required Packages
+With the environment activated, run the following command to install the required dependencies:
 
-### Step 1: Pre-generate Masks
-Run the automated masking script to do the heavy lifting:
+```bash
+pip install opencv-python Pillow PyQt5 numpy
+```
+
+---
+
+### Step 3: Run the Tools
+
+#### 1. Automatic Masking (`auto_masker.py`)
+Run this first to automatically pre-generate masks for any images that do not have them yet (it uses a binary threshold logic to detect bright clouds):
 ```bash
 python auto_masker.py
 ```
-This generates initial binary masks in the `masks/` folder.
 
-### Step 2: Review and Correct
-Launch the GUI tool to verify the results:
+#### 2. Manual Annotation GUI (`gui.py`)
+Run this tool to inspect, manually touch up the masks (draw/erase), adjust thresholds, and save your progress:
 ```bash
 python gui.py
 ```
-Use the mouse to paint or erase regions where the thresholding was too sensitive or missed detail, and tap the **Right Arrow** key to automatically save and proceed.
+
+---
+
+## 🎮 GUI Controls Legend
+
+* **Left-Click & Drag**: Draw/add cloud mask (Red overlay)
+* **Right-Click & Drag**: Erase/remove mask
+* **`[` and `]`**: Shrink and grow brush size
+* **Up / Down Arrow Keys**: Increase / decrease threshold on the fly (updates the slider)
+* **Left / Right Arrow Keys**: Go to Previous / Next image (automatically saves your current mask!)
+* **`Ctrl + Z`**: Undo last stroke
+* **`R` Key**: Clear mask completely
+* **`D` Key**: Delete image & mask pair (confirmation popup will appear)
