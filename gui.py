@@ -86,6 +86,41 @@ class CloudAnnotator(QWidget):
         image_row.addWidget(self.mask_label)
         image_row.addWidget(self.overlay_label)
 
+        # Threshold Slider Setup
+        threshold_layout = QHBoxLayout()
+        threshold_lbl = QLabel(f"Threshold: {self.current_threshold}")
+        threshold_lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e1e1e; min-width: 130px;")
+        
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(255)
+        self.slider.setValue(self.current_threshold)
+        self.slider.setFocusPolicy(Qt.NoFocus)
+        self.slider.valueChanged.connect(self.threshold_changed)
+        
+        # Premium Modern Slider styling
+        self.slider.setStyleSheet("""
+            QSlider::groove:horizontal {
+                height: 8px;
+                background: #e9ecef;
+                border-radius: 4px;
+            }
+            QSlider::handle:horizontal {
+                background: #007bff;
+                width: 18px;
+                margin-top: -5px;
+                margin-bottom: -5px;
+                border-radius: 9px;
+            }
+            QSlider::handle:horizontal:hover {
+                background: #0056b3;
+            }
+        """)
+        
+        threshold_layout.addWidget(threshold_lbl)
+        threshold_layout.addWidget(self.slider)
+        self.threshold_label = threshold_lbl
+
         # Legend Setup
         legend_lbl = QLabel(
             "<b>Controls Legend:</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
@@ -147,6 +182,7 @@ class CloudAnnotator(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self.status_label)
         layout.addLayout(image_row)
+        layout.addLayout(threshold_layout)
         layout.addWidget(legend_lbl)
         layout.addLayout(controls)
 
@@ -308,6 +344,11 @@ class CloudAnnotator(QWidget):
         self.mask_label.setCursor(cursor)
         self.overlay_label.setCursor(cursor)
 
+    def threshold_changed(self, value):
+        self.threshold_label.setText(f"Threshold: {value}")
+        self.current_threshold = value
+        self.apply_threshold()
+
     def apply_threshold(self):
         if self.image_array is None:
             return
@@ -454,11 +495,11 @@ class CloudAnnotator(QWidget):
 
         elif key == Qt.Key_Up:
             self.current_threshold = min(255, self.current_threshold + 5)
-            self.apply_threshold()
+            self.slider.setValue(self.current_threshold)
 
         elif key == Qt.Key_Down:
             self.current_threshold = max(0, self.current_threshold - 5)
-            self.apply_threshold()
+            self.slider.setValue(self.current_threshold)
 
 
 if __name__ == "__main__":
