@@ -49,6 +49,7 @@ class CloudAnnotator(QWidget):
 
         self.brush_size = 15
         self.redraw_mode = False
+        self.current_threshold = 95
 
         self.undo_mask = None
         self.image_array = None
@@ -85,48 +86,14 @@ class CloudAnnotator(QWidget):
         image_row.addWidget(self.mask_label)
         image_row.addWidget(self.overlay_label)
 
-        # Threshold Slider Setup
-        threshold_layout = QHBoxLayout()
-        threshold_lbl = QLabel("Threshold: 95")
-        threshold_lbl.setStyleSheet("font-size: 16px; font-weight: bold; color: #1e1e1e; min-width: 130px;")
-        
-        self.slider = QSlider(Qt.Horizontal)
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(255)
-        self.slider.setValue(95)
-        self.slider.setFocusPolicy(Qt.NoFocus)
-        self.slider.valueChanged.connect(self.threshold_changed)
-        
-        # Premium Modern Slider styling
-        self.slider.setStyleSheet("""
-            QSlider::groove:horizontal {
-                height: 8px;
-                background: #e9ecef;
-                border-radius: 4px;
-            }
-            QSlider::handle:horizontal {
-                background: #007bff;
-                width: 18px;
-                margin-top: -5px;
-                margin-bottom: -5px;
-                border-radius: 9px;
-            }
-            QSlider::handle:horizontal:hover {
-                background: #0056b3;
-            }
-        """)
-        
-        threshold_layout.addWidget(threshold_lbl)
-        threshold_layout.addWidget(self.slider)
-        self.threshold_label = threshold_lbl
-
         # Legend Setup
         legend_lbl = QLabel(
             "<b>Controls Legend:</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
-            "<b>Mouse:</b> Left-Click = Draw Mask, Right-Click = Erase Mask &nbsp;&nbsp;|&nbsp;&nbsp; "
-            "<b>Brush Size:</b> [ = Shrink, ] = Grow &nbsp;&nbsp;|&nbsp;&nbsp; "
-            "<b>Navigation:</b> Left / Right Arrow = Prev / Next (Auto-Saves) &nbsp;&nbsp;|&nbsp;&nbsp; "
-            "<b>Shortcuts:</b> Ctrl+Z = Undo, R = Clear Mask, D = Delete Pair"
+            "<b>Mouse:</b> Left-Click = Draw, Right-Click = Erase &nbsp;&nbsp;|&nbsp;&nbsp; "
+            "<b>Brush Size:</b> [ Shrink, ] Grow &nbsp;&nbsp;|&nbsp;&nbsp; "
+            "<b>Navigation:</b> Left/Right = Prev/Next &nbsp;&nbsp;|&nbsp;&nbsp; "
+            "<b>Threshold:</b> Up/Down = Adjust &nbsp;&nbsp;|&nbsp;&nbsp; "
+            "<b>Shortcuts:</b> Ctrl+Z=Undo, R=Clear, D=Delete"
         )
         legend_lbl.setStyleSheet("font-size: 14px; color: #333333; background-color: #e9ecef; padding: 10px; border-radius: 5px; margin-bottom: 5px;")
 
@@ -180,7 +147,6 @@ class CloudAnnotator(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self.status_label)
         layout.addLayout(image_row)
-        layout.addLayout(threshold_layout)
         layout.addWidget(legend_lbl)
         layout.addLayout(controls)
 
@@ -224,10 +190,9 @@ class CloudAnnotator(QWidget):
                 Image.open(mask_path).convert("L")
             )
         else:
-            # Pre-generate threshold mask using current slider threshold value
-            threshold_val = self.slider.value()
+            # Pre-generate threshold mask using current threshold value
             gray = cv2.cvtColor(self.image_array, cv2.COLOR_RGB2GRAY)
-            _, mask = cv2.threshold(gray, threshold_val, 255, cv2.THRESH_BINARY)
+            _, mask = cv2.threshold(gray, self.current_threshold, 255, cv2.THRESH_BINARY)
             kernel = np.ones((5,5), np.uint8)
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
             self.mask_array = mask
@@ -236,25 +201,12 @@ class CloudAnnotator(QWidget):
         self.update_views()
         self.update_custom_cursor()
 
-    def get_dynamic_display_size(self):
-        if self.image_array is None:
-            return 600
-        win_w = self.width()
-        win_h = self.height()
-        
-        # Space reserved for status bar, threshold slider, legend, and buttons (approx 260px)
-        available_h = win_h - 260
-        available_w = (win_w - 60) // 3
-        
-        display_size = max(100, min(available_w, available_h))
-        return display_size
-
     def update_views(self):
         if self.image_array is None:
             return
 
         h, w = self.image_array.shape[:2]
-        display_size = self.get_dynamic_display_size()
+        display_size = 600
 
         img_q = QImage(
             self.image_array.data,
@@ -313,6 +265,7 @@ class CloudAnnotator(QWidget):
             f"Image {self.current_index + 1}/{len(self.image_files)} | "
             f"{self.image_files[self.current_index]} | "
             f"Brush={self.brush_size} | "
+            f"Threshold={self.current_threshold} | "
             f"Controls: Left-Click = Draw, Right-Click = Erase"
         )
 
@@ -321,7 +274,7 @@ class CloudAnnotator(QWidget):
             return
         img_h, img_w = self.image_array.shape[:2]
         
-        display_size = self.get_dynamic_display_size()
+        display_size = 600
         aspect = img_w / img_h
         if aspect >= 1.0:
             label_w = display_size
@@ -355,13 +308,12 @@ class CloudAnnotator(QWidget):
         self.mask_label.setCursor(cursor)
         self.overlay_label.setCursor(cursor)
 
-    def threshold_changed(self, value):
-        self.threshold_label.setText(f"Threshold: {value}")
+    def apply_threshold(self):
         if self.image_array is None:
             return
         
         gray = cv2.cvtColor(self.image_array, cv2.COLOR_RGB2GRAY)
-        _, mask = cv2.threshold(gray, value, 255, cv2.THRESH_BINARY)
+        _, mask = cv2.threshold(gray, self.current_threshold, 255, cv2.THRESH_BINARY)
         
         kernel = np.ones((5,5), np.uint8)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
@@ -500,10 +452,13 @@ class CloudAnnotator(QWidget):
         elif key == Qt.Key_Z and event.modifiers() & Qt.ControlModifier:
             self.undo()
 
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        self.update_views()
-        self.update_custom_cursor()
+        elif key == Qt.Key_Up:
+            self.current_threshold = min(255, self.current_threshold + 5)
+            self.apply_threshold()
+
+        elif key == Qt.Key_Down:
+            self.current_threshold = max(0, self.current_threshold - 5)
+            self.apply_threshold()
 
 
 if __name__ == "__main__":
