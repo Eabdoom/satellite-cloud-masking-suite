@@ -1,15 +1,16 @@
 
 import os
 import sys
+import cv2
 from pathlib import Path
 import numpy as np
 from PIL import Image
 
 from PyQt5.QtCore import Qt, QPoint
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QCursor, QPainter, QColor, QPen
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
-    QPushButton, QMessageBox
+    QPushButton, QMessageBox, QSlider
 )
 
 DATASET_ROOT = r"C:\Users\arnav\Personal\Internships\XDLINX Space Labs\interns_dataset\intern3"
@@ -67,16 +68,43 @@ class CloudAnnotator(QWidget):
         self.status_label.setStyleSheet("font-size:16px;font-weight:bold;")
 
         self.original_label = DrawLabel()
-        self.mask_label = QLabel()
+        self.mask_label = DrawLabel()
         self.overlay_label = DrawLabel()
 
         self.original_label.main_window = self
+        self.mask_label.main_window = self
         self.overlay_label.main_window = self
 
         image_row = QHBoxLayout()
         image_row.addWidget(self.original_label)
         image_row.addWidget(self.mask_label)
         image_row.addWidget(self.overlay_label)
+
+        # Threshold Slider Setup
+        threshold_layout = QHBoxLayout()
+        threshold_lbl = QLabel("Threshold: 95")
+        threshold_lbl.setStyleSheet("font-size:14px; font-weight:bold;")
+        
+        self.slider = QSlider(Qt.Horizontal)
+        self.slider.setMinimum(0)
+        self.slider.setMaximum(255)
+        self.slider.setValue(95)
+        self.slider.setFocusPolicy(Qt.NoFocus)
+        self.slider.valueChanged.connect(self.threshold_changed)
+        
+        threshold_layout.addWidget(threshold_lbl)
+        threshold_layout.addWidget(self.slider)
+        self.threshold_label = threshold_lbl
+
+        # Legend Setup
+        legend_lbl = QLabel(
+            "<b>Controls Legend:</b> &nbsp;&nbsp;|&nbsp;&nbsp; "
+            "<b>Mouse:</b> Left-Click = Draw Mask, Right-Click = Erase Mask &nbsp;&nbsp;|&nbsp;&nbsp; "
+            "<b>Brush Size:</b> [ = Shrink, ] = Grow &nbsp;&nbsp;|&nbsp;&nbsp; "
+            "<b>Navigation:</b> Left / Right Arrow = Prev / Next (Auto-Saves) &nbsp;&nbsp;|&nbsp;&nbsp; "
+            "<b>Shortcuts:</b> Ctrl+Z = Undo, R = Clear Mask, D = Delete Pair"
+        )
+        legend_lbl.setStyleSheet("font-size:12px; color:#555555; background-color:#f0f0f0; padding:5px; border-radius:3px;")
 
         controls = QHBoxLayout()
 
@@ -104,6 +132,8 @@ class CloudAnnotator(QWidget):
         layout = QVBoxLayout()
         layout.addWidget(self.status_label)
         layout.addLayout(image_row)
+        layout.addLayout(threshold_layout)
+        layout.addWidget(legend_lbl)
         layout.addLayout(controls)
 
         self.setLayout(layout)
@@ -150,6 +180,7 @@ class CloudAnnotator(QWidget):
 
         self.redraw_mode = False
         self.update_views()
+        self.update_custom_cursor()
 
     def update_views(self):
 
@@ -216,6 +247,60 @@ class CloudAnnotator(QWidget):
             f"Brush={self.brush_size} | "
             f"Controls: Left-Click = Draw, Right-Click = Erase"
         )
+
+    def update_custom_cursor(self):
+        if self.image_array is None:
+            return
+        img_h, img_w = self.image_array.shape[:2]
+        
+        display_size = 600
+        aspect = img_w / img_h
+        if aspect >= 1.0:
+            label_w = display_size
+            label_h = int(display_size / aspect)
+        else:
+            label_h = display_size
+            label_w = int(display_size * aspect)
+
+        radius = int(self.brush_size * label_w / img_w)
+        radius = max(1, radius)
+        diameter = radius * 2
+        
+        size = diameter + 4
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.transparent)
+        
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        painter.setPen(QPen(QColor(255, 255, 255, 255), 1.5, Qt.SolidLine))
+        painter.drawEllipse(2, 2, diameter, diameter)
+        
+        painter.setPen(QPen(QColor(0, 255, 255, 255), 1.0, Qt.SolidLine))
+        painter.setBrush(QColor(0, 255, 255, 60))
+        painter.drawEllipse(2, 2, diameter, diameter)
+        
+        painter.end()
+        
+        cursor = QCursor(pixmap, size // 2, size // 2)
+        self.original_label.setCursor(cursor)
+        self.mask_label.setCursor(cursor)
+        self.overlay_label.setCursor(cursor)
+
+    def threshold_changed(self, value):
+        self.threshold_label.setText(f"Threshold: {value}")
+        if self.image_array is None:
+            return
+        
+        gray = cv2.cvtColor(self.image_array, cv2.COLOR_RGB2GRAY)
+        _, mask = cv2.threshold(gray, value, 255, cv2.THRESH_BINARY)
+        
+        kernel = np.ones((5,5), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        
+        self.save_undo_state()
+        self.mask_array = mask
+        self.update_views()
 
     def save_undo_state(self):
         self.undo_mask = self.mask_array.copy()
@@ -334,13 +419,15 @@ class CloudAnnotator(QWidget):
         elif key == Qt.Key_D:
             self.delete_pair()
 
-        elif key == Qt.Key_Plus or key == Qt.Key_Equal:
-            self.brush_size += 2
+        elif key == Qt.Key_BracketRight:
+            self.brush_size = min(100, self.brush_size + 2)
             self.update_views()
+            self.update_custom_cursor()
 
-        elif key == Qt.Key_Minus:
+        elif key == Qt.Key_BracketLeft:
             self.brush_size = max(1, self.brush_size - 2)
             self.update_views()
+            self.update_custom_cursor()
 
         elif key == Qt.Key_Z and event.modifiers() & Qt.ControlModifier:
             self.undo()
