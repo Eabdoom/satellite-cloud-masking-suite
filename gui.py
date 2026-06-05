@@ -279,7 +279,8 @@ class CloudAnnotator(QWidget):
         )
 
         overlay = self.image_array.copy()
-        overlay[self.mask_array > 0] = [255, 0, 0]
+        mask_indices = self.mask_array > 0
+        overlay[mask_indices] = (0.5 * overlay[mask_indices] + 0.5 * np.array([255, 0, 0])).astype(np.uint8)
 
         overlay_q = QImage(
             overlay.data,
