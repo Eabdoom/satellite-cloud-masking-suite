@@ -29,6 +29,8 @@ from pathlib import Path
 parser = argparse.ArgumentParser(description="K-Means Clustering Cloud Mask Generator")
 parser.add_argument("dataset", nargs="?", default="intern1", help="Name of dataset folder (e.g., intern1)")
 parser.add_argument("-l", "--limit", type=int, default=None, help="Limit the number of masks generated for testing")
+parser.add_argument("-f", "--force", action="store_true", help="Force overwrite existing masks (useful if existing masks are wrong)")
+parser.add_argument("-n", "--night-threshold", type=float, default=20.0, help="Brightness threshold below which an image is treated as night (generates a blank mask)")
 args = parser.parse_args()
 
 DATASET_NAME = args.dataset
@@ -72,6 +74,8 @@ print(f"Output   : {MASKS_DIR}")
 print(f"Settings : K={K}, MaxIter={MAX_ITER}, Attempts={ATTEMPTS}")
 if args.limit is not None:
     print(f"Limit    : Up to {args.limit} new masks will be generated")
+if args.force:
+    print(f"Mode     : FORCE OVERWRITE (existing masks will be overwritten)")
 print("-" * 50)
 
 skipped = 0
@@ -87,8 +91,8 @@ for i, img_name in enumerate(image_files):
     stem      = Path(img_name).stem
     mask_path = MASKS_DIR / f"{stem}_mask.png"
 
-    # Skip if mask already exists (don't overwrite manual work)
-    if mask_path.exists():
+    # Skip if mask already exists (unless force overwrite is enabled)
+    if mask_path.exists() and not args.force:
         skipped += 1
         print(f"[{i+1}/{total}] SKIP (mask exists): {img_name}")
         continue
@@ -96,6 +100,19 @@ for i, img_name in enumerate(image_files):
     img = cv2.imread(str(img_path))
     if img is None:
         print(f"[{i+1}/{total}] ERROR reading: {img_name}")
+        continue
+
+    # --- Night Image Detection ---
+    # Convert to grayscale to check mean brightness
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    mean_brightness = gray.mean()
+
+    if mean_brightness < args.night_threshold:
+        # Save a completely black mask for night images
+        mask = np.zeros(img.shape[:2], dtype=np.uint8)
+        cv2.imwrite(str(mask_path), mask)
+        generated += 1
+        print(f"[{i+1}/{total}] DONE (NIGHT - saved blank mask): {img_name} | Mean brightness: {mean_brightness:.1f}")
         continue
 
     # --- K-Means Segmentation ---
