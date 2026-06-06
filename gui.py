@@ -13,10 +13,11 @@ from PyQt5.QtWidgets import (
     QPushButton, QMessageBox, QSlider
 )
 
-DATASET_ROOT = r"C:\Users\arnav\Personal\Internships\XDLINX Space Labs\interns_dataset\intern5"
-IMAGES_DIR = Path(DATASET_ROOT) / "images"
-MASKS_DIR = Path(DATASET_ROOT) / "masks"
-PROGRESS_FILE = Path(DATASET_ROOT) / "progress.txt"
+DATASET_NAME = sys.argv[1] if len(sys.argv) > 1 else "intern5"
+DATASET_ROOT = Path(r"C:\Users\arnav\Personal\Internships\XDLINX Space Labs\interns_dataset") / DATASET_NAME
+IMAGES_DIR = DATASET_ROOT / "images"
+MASKS_DIR = DATASET_ROOT / "masks"
+PROGRESS_FILE = DATASET_ROOT / "progress.txt"
 
 
 class DrawLabel(QLabel):
