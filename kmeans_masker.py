@@ -18,8 +18,20 @@ import cv2
 import numpy as np
 from pathlib import Path
 
-# --- Configuration ---
-DATASET_NAME = sys.argv[1] if len(sys.argv) > 1 else "intern1"
+import os
+import sys
+import cv2
+import numpy as np
+import argparse
+from pathlib import Path
+
+# --- Argument Parsing ---
+parser = argparse.ArgumentParser(description="K-Means Clustering Cloud Mask Generator")
+parser.add_argument("dataset", nargs="?", default="intern1", help="Name of dataset folder (e.g., intern1)")
+parser.add_argument("-l", "--limit", type=int, default=None, help="Limit the number of masks generated for testing")
+args = parser.parse_args()
+
+DATASET_NAME = args.dataset
 DATASET_ROOT = Path(r"C:\Users\arnav\Personal\Internships\XDLINX Space Labs\interns_dataset") / DATASET_NAME
 IMAGES_DIR   = DATASET_ROOT / "images"
 MASKS_DIR    = DATASET_ROOT / "masks"
@@ -58,12 +70,19 @@ print(f"Dataset  : {DATASET_NAME}")
 print(f"Images   : {total}")
 print(f"Output   : {MASKS_DIR}")
 print(f"Settings : K={K}, MaxIter={MAX_ITER}, Attempts={ATTEMPTS}")
+if args.limit is not None:
+    print(f"Limit    : Up to {args.limit} new masks will be generated")
 print("-" * 50)
 
 skipped = 0
 generated = 0
 
 for i, img_name in enumerate(image_files):
+    # If a limit is specified and we've generated that many, stop.
+    if args.limit is not None and generated >= args.limit:
+        print(f"Reached limit of {args.limit} generated masks. Stopping.")
+        break
+
     img_path  = IMAGES_DIR / img_name
     stem      = Path(img_name).stem
     mask_path = MASKS_DIR / f"{stem}_mask.png"
@@ -80,7 +99,6 @@ for i, img_name in enumerate(image_files):
         continue
 
     # --- K-Means Segmentation ---
-    # Reshape image into a flat list of pixels (each row = one pixel's BGR values)
     pixel_data = img.reshape((-1, 3)).astype(np.float32)
 
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, MAX_ITER, 1.0)
@@ -89,12 +107,10 @@ for i, img_name in enumerate(image_files):
     )
 
     # --- Identify the "Cloud" cluster ---
-    # Clouds are the brightest pixels. We find the cluster whose center
-    # has the highest average brightness across all 3 channels.
     center_brightness = centers.mean(axis=1)
     cloud_cluster_idx = int(np.argmax(center_brightness))
 
-    # Build a binary mask: 255 where the pixel belongs to the cloud cluster
+    # Build binary mask
     labels_flat = labels.flatten()
     mask = np.where(labels_flat == cloud_cluster_idx, 255, 0).astype(np.uint8)
     mask = mask.reshape(img.shape[:2])
