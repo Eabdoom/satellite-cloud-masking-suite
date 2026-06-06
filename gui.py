@@ -10,7 +10,7 @@ from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QImage, QPixmap, QCursor, QPainter, QColor, QPen
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QVBoxLayout, QHBoxLayout,
-    QPushButton, QMessageBox, QSlider
+    QPushButton, QMessageBox, QSlider, QRadioButton, QButtonGroup
 )
 
 DATASET_NAME = sys.argv[1] if len(sys.argv) > 1 else "intern5"
@@ -149,9 +149,71 @@ class CloudAnnotator(QWidget):
             "<b>Brush Size:</b> [ Shrink, ] Grow &nbsp;&nbsp;|&nbsp;&nbsp; "
             "<b>Navigation:</b> Left/Right = Prev/Next &nbsp;&nbsp;|&nbsp;&nbsp; "
             "<b>Threshold:</b> Up/Down = Adjust &nbsp;&nbsp;|&nbsp;&nbsp; "
+            "<b>Re-Mask:</b> M = Current Image &nbsp;&nbsp;|&nbsp;&nbsp; "
             "<b>Shortcuts:</b> Ctrl+Z=Undo, R=Clear, D=Delete"
         )
         legend_lbl.setStyleSheet("font-size: 14px; color: #333333; background-color: #e9ecef; padding: 10px; border-radius: 5px; margin-bottom: 5px;")
+
+        # --- Algorithm Selector Row ---
+        algo_layout = QHBoxLayout()
+
+        algo_lbl = QLabel("Re-Mask Algorithm:")
+        algo_lbl.setStyleSheet("font-size: 15px; font-weight: bold; color: #1e1e1e; margin-right: 10px;")
+
+        self.algo_group = QButtonGroup(self)
+        radio_style = "font-size: 15px; padding: 4px 12px;"
+
+        self.radio_fixed  = QRadioButton("Fixed Threshold")
+        self.radio_otsu   = QRadioButton("Otsu")
+        self.radio_hsv    = QRadioButton("HSV")
+        self.radio_kmeans = QRadioButton("K-Means")
+        self.radio_hsv.setChecked(True)  # HSV is default
+
+        for r in [self.radio_fixed, self.radio_otsu, self.radio_hsv, self.radio_kmeans]:
+            r.setStyleSheet(radio_style)
+            r.setFocusPolicy(Qt.NoFocus)
+            self.algo_group.addButton(r)
+
+        remask_btn = QPushButton("Re-Mask (M)")
+        remask_btn.setFocusPolicy(Qt.NoFocus)
+        remask_btn.clicked.connect(self.remask_current)
+
+        remask_all_btn = QPushButton("Remask All Remaining")
+        remask_all_btn.setFocusPolicy(Qt.NoFocus)
+        remask_all_btn.clicked.connect(self.remask_all_remaining)
+
+        remask_btn_style = """
+            QPushButton {
+                font-size: 15px; font-weight: bold;
+                padding: 8px 16px; border-radius: 5px;
+                background-color: #17a2b8; color: white;
+                border: none;
+            }
+            QPushButton:hover { background-color: #138496; }
+            QPushButton:pressed { background-color: #117a8b; }
+        """
+        remask_all_style = """
+            QPushButton {
+                font-size: 15px; font-weight: bold;
+                padding: 8px 16px; border-radius: 5px;
+                background-color: #fd7e14; color: white;
+                border: none;
+            }
+            QPushButton:hover { background-color: #e8710a; }
+            QPushButton:pressed { background-color: #d4650a; }
+        """
+        remask_btn.setStyleSheet(remask_btn_style)
+        remask_all_btn.setStyleSheet(remask_all_style)
+
+        algo_layout.addWidget(algo_lbl)
+        algo_layout.addWidget(self.radio_fixed)
+        algo_layout.addWidget(self.radio_otsu)
+        algo_layout.addWidget(self.radio_hsv)
+        algo_layout.addWidget(self.radio_kmeans)
+        algo_layout.addSpacing(20)
+        algo_layout.addWidget(remask_btn)
+        algo_layout.addWidget(remask_all_btn)
+        algo_layout.addStretch()
 
         controls = QHBoxLayout()
 
@@ -204,6 +266,7 @@ class CloudAnnotator(QWidget):
         layout.addWidget(self.status_label)
         layout.addLayout(image_row)
         layout.addLayout(sliders_layout)
+        layout.addLayout(algo_layout)
         layout.addWidget(legend_lbl)
         layout.addLayout(controls)
 
@@ -391,6 +454,102 @@ class CloudAnnotator(QWidget):
         self.mask_array = mask
         self.update_views()
 
+    def get_selected_algo(self):
+        if self.radio_fixed.isChecked():
+            return "fixed"
+        elif self.radio_otsu.isChecked():
+            return "otsu"
+        elif self.radio_hsv.isChecked():
+            return "hsv"
+        else:
+            return "kmeans"
+
+    def generate_mask_array(self, img_rgb, mode):
+        """Generate a binary mask numpy array from an RGB image using the given mode."""
+        kernel = np.ones((5, 5), np.uint8)
+
+        if mode == "hsv":
+            img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+            hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
+            _, s, v = cv2.split(hsv)
+            _, low_sat  = cv2.threshold(s, 60, 255, cv2.THRESH_BINARY_INV)
+            _, high_val = cv2.threshold(v, 100, 255, cv2.THRESH_BINARY)
+            mask = cv2.bitwise_and(low_sat, high_val)
+
+        elif mode == "otsu":
+            gray    = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+            blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+            _, mask = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+        elif mode == "kmeans":
+            img_bgr    = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+            pixel_data = img_bgr.reshape((-1, 3)).astype(np.float32)
+            criteria   = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+            _, labels, centers = cv2.kmeans(pixel_data, 3, None, criteria, 3, cv2.KMEANS_PP_CENTERS)
+            cloud_idx  = int(np.argmax(centers.mean(axis=1)))
+            flat       = np.where(labels.flatten() == cloud_idx, 255, 0).astype(np.uint8)
+            mask       = flat.reshape(img_rgb.shape[:2])
+
+        else:  # fixed
+            gray = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2GRAY)
+            _, mask = cv2.threshold(gray, self.current_threshold, 255, cv2.THRESH_BINARY)
+
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        return mask
+
+    def remask_current(self):
+        """Re-generate the mask for the current image using the selected algorithm."""
+        if self.image_array is None:
+            return
+        algo = self.get_selected_algo()
+        self.status_label.setText(f"Running {algo.upper()} on current image...")
+        QApplication.processEvents()
+        self.save_undo_state()
+        self.mask_array = self.generate_mask_array(self.image_array, algo)
+        self.update_views()
+
+    def remask_all_remaining(self):
+        """Bulk re-generate masks for all images from current_index to end."""
+        total_remaining = len(self.image_files) - self.current_index
+        algo = self.get_selected_algo()
+
+        answer = QMessageBox.question(
+            self,
+            "Remask All Remaining",
+            f"Overwrite masks for {total_remaining} images\n"
+            f"(from image {self.current_index + 1} to {len(self.image_files)})\n"
+            f"using algorithm: {algo.upper()}?\n\n"
+            f"This cannot be undone.",
+            QMessageBox.Yes | QMessageBox.Cancel
+        )
+        if answer != QMessageBox.Yes:
+            return
+
+        # Save current mask before bulk operation
+        self.save_mask()
+
+        for i in range(self.current_index, len(self.image_files)):
+            img_name  = self.image_files[i]
+            img_path  = IMAGES_DIR / img_name
+            stem      = Path(img_name).stem
+            mask_path = MASKS_DIR / f"{stem}_mask.png"
+
+            self.status_label.setText(
+                f"Remasking [{i + 1}/{len(self.image_files)}] {img_name} using {algo.upper()}..."
+            )
+            QApplication.processEvents()
+
+            img_arr = np.array(Image.open(img_path).convert("RGB"))
+            mask    = self.generate_mask_array(img_arr, algo)
+            Image.fromarray(mask).save(mask_path)
+
+        # Reload current image to show fresh mask
+        self.load_current_image()
+        self.status_label.setText(
+            f"Done! Remasked {total_remaining} images with {algo.upper()}."
+        )
+
     def save_undo_state(self):
         self.undo_mask = self.mask_array.copy()
 
@@ -528,6 +687,9 @@ class CloudAnnotator(QWidget):
         elif key == Qt.Key_Down:
             self.current_threshold = max(0, self.current_threshold - 5)
             self.slider.setValue(self.current_threshold)
+
+        elif key == Qt.Key_M:
+            self.remask_current()
 
 
 if __name__ == "__main__":
