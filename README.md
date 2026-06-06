@@ -46,7 +46,22 @@ Run this first to automatically pre-generate masks for any images that do not ha
 python auto_masker.py
 ```
 
-#### 2. Manual Annotation GUI (`gui.py`)
+#### 2. K-Means Clustering Masker (`kmeans_masker.py`)
+An advanced alternative to `auto_masker.py`. Instead of a fixed brightness threshold, it uses **K-Means Clustering (K=3)** to automatically group pixels into dark ground, haze, and bright cloud regions — then extracts the brightest cluster as the cloud mask. This works better on datasets with varying lighting conditions.
+
+```bash
+# Run on intern1 (default)
+python kmeans_masker.py
+
+# Run on a different folder (e.g., intern2)
+python kmeans_masker.py intern2
+```
+
+> ⚠️ This script is **hardcoded to refuse** running on `intern3` or `intern5` to protect completed work.
+> It also **skips images that already have a mask**, so it will never overwrite your manual touch-ups.
+> It takes roughly **1-2 seconds per image**, so expect ~10-20 minutes for 600 images.
+
+#### 3. Manual Annotation GUI (`gui.py`)
 Run this tool to inspect, manually touch up the masks (draw/erase), adjust thresholds, and save your progress:
 ```bash
 python gui.py
