@@ -2,3 +2,13 @@ venv/
 __pycache__/
 *.pyc
 ai_context.txt
+
+# Datasets and generated mask directories
+intern1/
+intern2/
+intern3/
+intern4/
+intern5/
+intern6/
+intern7/
+intern*/

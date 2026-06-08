@@ -34,7 +34,7 @@ parser.add_argument("-n", "--night-threshold", type=float, default=20.0, help="B
 args = parser.parse_args()
 
 DATASET_NAME = args.dataset
-DATASET_ROOT = Path(r"C:\Users\arnav\Personal\Internships\XDLINX Space Labs\interns_dataset") / DATASET_NAME
+DATASET_ROOT = Path(__file__).resolve().parent / DATASET_NAME
 IMAGES_DIR   = DATASET_ROOT / "images"
 MASKS_DIR    = DATASET_ROOT / "masks"
 

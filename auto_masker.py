@@ -39,7 +39,7 @@ args = parser.parse_args()
 
 # --- Paths ---
 DATASET_NAME = args.dataset
-BASE_DIR     = Path(r"C:\Users\arnav\Personal\Internships\XDLINX Space Labs\interns_dataset")
+BASE_DIR     = Path(__file__).resolve().parent
 DATASET_ROOT = BASE_DIR / DATASET_NAME
 IMAGES_DIR   = DATASET_ROOT / "images"
 MASKS_DIR    = DATASET_ROOT / "masks"

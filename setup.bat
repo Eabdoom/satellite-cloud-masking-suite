@@ -1,6 +1,6 @@
 @echo off
 echo ===================================================
-echo   XDLINX Space Labs - Cloud Masking Setup Script
+echo   Cloud Masking Suite - Setup Script
 echo ===================================================
 echo.
 
@@ -27,9 +27,9 @@ if not exist "venv" (
 )
 
 :: Install requirements
-echo [2/3] Installing dependencies (opencv-python, Pillow, PyQt5, numpy)...
+echo [2/3] Installing dependencies from requirements.txt...
 venv\Scripts\python.exe -m pip install --upgrade pip >nul
-venv\Scripts\pip.exe install opencv-python Pillow PyQt5 numpy
+venv\Scripts\pip.exe install -r requirements.txt
 if %errorlevel% neq 0 (
     echo [ERROR] Failed to install dependencies.
     pause
