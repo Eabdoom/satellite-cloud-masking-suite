@@ -107,7 +107,14 @@ def generate_mask(img, mode):
         h, s, v = cv2.split(hsv)
         # Low saturation (colorless) AND high value (bright) = cloud
         _, low_sat  = cv2.threshold(s, 60, 255, cv2.THRESH_BINARY_INV)
-        _, high_val = cv2.threshold(v, 100, 255, cv2.THRESH_BINARY)
+        
+        # Dynamic value threshold for dark/night images
+        v_thresh = 100
+        mean_v = np.mean(v)
+        if mean_v < 50:
+            v_thresh = max(15, min(100, int(mean_v * 1.5)))
+            
+        _, high_val = cv2.threshold(v, v_thresh, 255, cv2.THRESH_BINARY)
         mask = cv2.bitwise_and(low_sat, high_val)
 
     elif mode == "otsu":
