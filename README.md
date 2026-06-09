@@ -4,7 +4,7 @@ A professional-grade computer vision suite designed to accelerate dataset creati
 
 ---
 
-<img width="1872" height="896" alt="Screenshot 2026-06-05 112807" src="https://github.com/user-attachments/assets/648c385d-9562-4074-9eb1-ebc7929215d4" />
+<img width="1904" height="935" alt="image" src="https://github.com/user-attachments/assets/439dcc64-a835-4d78-adb9-859b8b9707b5" />
 
 
 ## Key Features
