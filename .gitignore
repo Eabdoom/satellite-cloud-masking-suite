@@ -12,3 +12,6 @@ intern5/
 intern6/
 intern7/
 intern*/
+
+# Local shareable template file
+gui_shareable.py
