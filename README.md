@@ -4,7 +4,7 @@ A professional-grade computer vision suite designed to accelerate dataset creati
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 * **Multi-Algorithm Automation**: Choose between several image processing pipelines:
   * **HSV Color Space Filter**: Isolates bright, colorless pixels (clouds) by saturation and value thresholds, ignoring green forests, soil, and blue water.
@@ -21,7 +21,7 @@ A professional-grade computer vision suite designed to accelerate dataset creati
 
 ---
 
-## 🛠️ Step-by-Step Setup
+## Setup
 
 ### Step 1: Clone and Set Up Environment
 We provide a one-click setup script for Windows users, or you can set it up manually.
@@ -50,7 +50,7 @@ pip install -r requirements.txt
 
 ---
 
-## 🎮 How to Run the Tools
+## How to Run Tools
 
 ### 1. Automated Baselines (`auto_masker.py` / `kmeans_masker.py`)
 Run the automated mask generator first to build initial masks for your dataset.
@@ -99,7 +99,7 @@ python gui.py dataset_folder
 
 ---
 
-## 🕹️ GUI Controls Legend
+## GUI Controls Legend
 
 | Key/Mouse Action | Control Description |
 |---|---|
@@ -116,7 +116,7 @@ python gui.py dataset_folder
 
 ---
 
-## 📂 Expected Repository Structure
+## Expected Repository Structure
 To use these tools, format your dataset directory in the root directory as follows:
 ```text
 your_dataset_name/
