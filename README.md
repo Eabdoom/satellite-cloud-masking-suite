@@ -4,6 +4,9 @@ A professional-grade computer vision suite designed to accelerate dataset creati
 
 ---
 
+<img width="1872" height="896" alt="Screenshot 2026-06-05 112807" src="https://github.com/user-attachments/assets/648c385d-9562-4074-9eb1-ebc7929215d4" />
+
+
 ## Key Features
 
 * **Multi-Algorithm Automation**: Choose between several image processing pipelines:
